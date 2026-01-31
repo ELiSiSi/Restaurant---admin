@@ -13,10 +13,21 @@ const tourSchema = new mongoose.Schema(
       maxlength: [40, 'A tour name must have less or equal than 40 characters'],
       minlength: [10, 'A tour name must have more or equal than 10 characters'],
     },
+    slug: {
+      type: String,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
     duration: {
       type: Number,
       required: [true, 'A tour must have a duration'],
     },
+    description: {
+      type: String,
+      trim: true,
+    },
+
     maxGroupSize: {
       type: Number,
       required: [true, 'A tour must have a group size'],
@@ -40,7 +51,7 @@ const tourSchema = new mongoose.Schema(
       default: 4.5,
       min: [1, 'Rating must be above 1.0'],
       max: [5, 'Rating must be below 5.0'],
-      set: (val) => Math.round(val * 10) / 10, 
+      set: (val) => Math.round(val * 10) / 10,
     },
     ratingsQuantity: {
       type: Number,
@@ -153,9 +164,13 @@ tourSchema.pre(/^find/, function (next) {
 
 
 tourSchema.pre('aggregate', function (next) {
-   this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
+  const firstStage = this.pipeline()[0];
+  if (firstStage && firstStage.$geoNear) return next();
+
+  this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
   next();
 });
+
 //----------------------------------------------------------------------------------------
 tourSchema.post(/^find/, function (next) {
   this.populate({
@@ -176,5 +191,7 @@ tourSchema.index({ slug: 1 });
 tourSchema.index({ startLocation: '2dsphere' });
 
 const Tour = mongoose.model('Tour', tourSchema);
+
+
 
 export default Tour;

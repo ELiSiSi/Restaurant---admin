@@ -1,11 +1,7 @@
-  import asyncHandler from 'express-async-handler';
+import asyncHandler from 'express-async-handler';
 
-import Review from '../models/reviewMode.js';
-import AppError from '../utils/appError.js';
-import {deleteOne,updateOne,createOne,getOne} from './handlerFactory.js'
-
-
-
+import Review from '../models/reviewModel.js';
+import { createOne, deleteOne, getOne, updateOne } from './handlerFactory.js';
 
 //----------------------------------------------------------------------------------------
 export const setTourUserIds = (req, res, next) => {
@@ -35,7 +31,7 @@ export const getAllReviews = asyncHandler(async (req, res, next) => {
 //----------------------------------------------------------------------------------------
 export const getReviewById = getOne(Review);
 //----------------------------------------------------------------------------------------
-export const updateReview =   updateOne(Review);
+export const updateReview = updateOne(Review);
 
 //----------------------------------------------------------------------------------------
-export const deleteReview = deleteOne(Review)
+export const deleteReview = deleteOne(Review);

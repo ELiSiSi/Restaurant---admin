@@ -1,3 +1,4 @@
+import e from 'express';
 import AppError from '../utils/appError.js';
 
 //---------------------------------------------------------------------------------------------------
@@ -36,13 +37,21 @@ const handleJWTExpiredError = () => {
 };
 
 //---------------------------------------------------------------------------------------------------
-const sendErrorDev = (err, res) => {
-  res.status(err.statusCode).json({
-    status: err.status,
-    error: err,
-    message: err.message,
-    stack: err.stack,
-  });
+const sendErrorDev = (err, req, res) => {
+  if (req.originalUrl.startsWith('/api')) {
+    res.status(err.statusCode).json({
+      status: err.status,
+      error: err,
+      message: err.message,
+      stack: err.stack,
+    });
+  } else {
+    // ← ده اللي هيشتغل لو الـ URL مش /api
+    res.status(err.statusCode).render('error', {
+      title: 'Something went wrong!',
+      msg: err.message,
+    });
+  }
 };
 
 //---------------------------------------------------------------------------------------------------
@@ -62,7 +71,6 @@ const sendErrorPro = (err, res) => {
 };
 
 //---------------------------------------------------------------------------------------------------
-//---------------------------------------------------------------------------------------------------
 export default (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
@@ -71,6 +79,7 @@ export default (err, req, res, next) => {
     sendErrorDev(err, res);
   } else if (process.env.NODE_ENV === 'production') {
     let error = err;
+    error.message = err.message;
 
     if (err.name === 'CastError') {
       error = handleCastErrorDB(err);

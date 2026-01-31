@@ -1,11 +1,11 @@
+import crypto from 'crypto';
 import asyncHandler from 'express-async-handler';
 import JWT from 'jsonwebtoken';
-import crypto from 'crypto';
+import { promisify } from 'util';
 
 import User from '../models/userModel.js';
 import AppError from '../utils/appError.js';
-import sendEmail from '../utils/email.js';
-
+import { Email } from '../utils/email.js';
 //----------------------------------------------------------------------------------------
 const signToken = (id) => {
   return JWT.sign({ id }, process.env.JWT_SECRET, {
@@ -16,18 +16,17 @@ const signToken = (id) => {
 const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
 
-  const cookieOptions={
+  const cookieOptions = {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     ),
-     httpOnly: true,
-  }
+    httpOnly: true,
+  };
 
-  if(process.env.NODE_ENV==='production') cookieOptions.secure= true,
+  if (process.env.NODE_ENV === 'production')
+    ((cookieOptions.secure = true), (user.password = undefined));
 
-  user.password=undefined
-
-  res.cookie('jwt', token,cookieOptions);
+  res.cookie('jwt', token, cookieOptions);
 
   res.status(statusCode).json({
     status: 'success',
@@ -40,15 +39,14 @@ const createSendToken = (user, statusCode, res) => {
 
 //----------------------------------------------------------------------------------------
 export const signup = asyncHandler(async (req, res, next) => {
-  const newUser = await User.create(
-
-    {
-      name: req.body.name,
-      email: req.body.email,
-      password: req.body.password,
-      passwordConfirm: req.body.passwordConfirm,
-    }
-  );
+  const newUser = await User.create({
+    name: req.body.name,
+    email: req.body.email,
+    password: req.body.password,
+    passwordConfirm: req.body.passwordConfirm,
+  });
+  const url = `${req.protocol}://${req.get('host')}/me`;
+  new Email(newUser, url).sendWelcome();
   createSendToken(newUser, 201, res);
 });
 
@@ -70,6 +68,19 @@ export const login = asyncHandler(async (req, res, next) => {
 });
 
 //----------------------------------------------------------------------------------------
+export const logout = asyncHandler(async (req, res, next) => {
+  res.cookie('jwt', 'loggedout', {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    path: '/',
+  });
+
+  res.status(200).json({ status: 'success' });
+});
+
+//----------------------------------------------------------------------------------------
 export const protect = asyncHandler(async (req, res, next) => {
   let token;
 
@@ -78,6 +89,8 @@ export const protect = asyncHandler(async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer')
   ) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
   }
 
   if (!token) {
@@ -91,24 +104,51 @@ export const protect = asyncHandler(async (req, res, next) => {
   const currentUser = await User.findById(decoded.id);
 
   if (!currentUser) {
-
-
-
     return next(new AppError('The user no longer exists.', 401));
   }
 
   if (currentUser.changedPasswordAfter(decoded.iat)) {
-
-
     return next(
       new AppError('User recently changed password! Please login again.', 401)
     );
   }
   req.user = currentUser;
 
+  res.locals.user = currentUser;
+
   next();
 });
 
+// authController.js
+export const isLoggedIn = async (req, res, next) => {
+  try {
+    if (req.cookies && req.cookies.jwt) {
+      const token = req.cookies.jwt;
+
+      // 1) Verify token
+      const decoded = await promisify(JWT.verify)(
+        token,
+        process.env.JWT_SECRET
+      );
+
+      // 2) Check if user still exists
+      const currentUser = await User.findById(decoded.id);
+      if (!currentUser) return next();
+
+      // 3) Check if user changed password after token was issued
+      if (currentUser.changedPasswordAfter(decoded.iat)) return next();
+
+      // ✅ في user مسجل دخول
+      res.locals.user = currentUser;
+      return next();
+    }
+  } catch (err) {
+    // لو في error (token مش صحيح مثلاً)، اعتبره مش logged in
+    return next();
+  }
+
+  next();
+};
 //-----------------------------------------------------------------------------------
 export const restrictTo = (...roles) => {
   return (req, res, next) => {
@@ -131,25 +171,16 @@ export const forgotPassword = asyncHandler(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
-  const resetURL = `${req.protocol}://${req.get(
-    'host'
-  )}/api/v1/user/resetPassword/${resetToken}`;
-
-  const message = `Forgot your password? Submit a PATCH request with your new password and
-passwordConfirm to: ${resetURL}.\n If you didn't forget your password, please ignore this
-email `;
-
   try {
-    await sendEmail({
-      email: user.email,
-      subject: ' your password reset token (valid for 10 min)',
-      message,
-    });
+    const resetURL = `${req.protocol}://${req.get(
+      'host'
+    )}/api/v1/users/resetPassword/${resetToken}`;
 
+    await new Email(user, resetURL).sendPasswordReset();
     res.status(200).json({
       status: 'success',
       message: 'Token sent to email !',
-      resetToken,
+      // resetToken,
     });
   } catch (err) {
     user.passwordResetToken = undefined;
@@ -161,13 +192,9 @@ email `;
         ' there was an error sending the email . try again later !!!',
         500
       )
-
-
     );
   }
 });
-
-
 
 //-----------------------------------------------------------------------------------
 export const resetPassword = asyncHandler(async (req, res, next) => {
@@ -193,7 +220,6 @@ export const resetPassword = asyncHandler(async (req, res, next) => {
   await user.save();
 
   createSendToken(user, 200, res);
-
 });
 
 // -----------------------------------------------------------
@@ -209,6 +235,6 @@ export const updatePassword = asyncHandler(async (req, res, next) => {
   user.password = req.body.password;
   user.passwordConfirm = req.body.passwordConfirm;
 
-
+  await user.save();
   createSendToken(user, 200, res);
 });

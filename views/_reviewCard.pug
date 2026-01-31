@@ -1,0 +1,25 @@
+mixin reviewCard(review)
+  .reviews__card
+    .reviews__avatar
+      if review.user
+        img.reviews__avatar-img(
+          src=`/img/users/${review.user.photo}`,
+          alt=`${review.user.name}`
+        )
+        h6.reviews__user= review.user.name
+      else
+        img.reviews__avatar-img(
+          src='/img/users/default.jpg',
+          alt='Anonymous'
+        )
+        h6.reviews__user Anonymous
+
+    p.reviews__text= review.review
+
+    .reviews__rating
+      - const rating = review.rating || 0
+      - for (let i = 1; i <= 5; i++)
+        if i <= rating
+          span.star.filled &#9733;
+        else
+          span.star.empty &#9733;   

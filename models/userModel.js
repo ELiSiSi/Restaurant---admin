@@ -20,7 +20,10 @@ const userSchema = new Schema(
       lowercase: true,
       validate: [validator.isEmail, 'Please provide a valid email'],
     },
-    photo: [String],
+    photo: {
+      type: String,
+      default: 'default.png',
+    },
     role: {
       type: String,
       enum: ['user', 'guide', 'lead-guide', 'admin'],
@@ -68,7 +71,7 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
- 
+
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || this.isNew) return next();
 
@@ -78,7 +81,7 @@ userSchema.pre('save', async function (next) {
   next();
 });
 
- 
+
 userSchema.pre(/^find/, async function (next) {
   this.find({ active: { $ne: false } });
   next();
@@ -106,7 +109,7 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   return false;
 };
 
- 
+
 userSchema.methods.createPasswordResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
 
