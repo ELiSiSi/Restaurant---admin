@@ -1,5 +1,5 @@
 import express from 'express';
-import AppError from '../utils/AppError.js';
+import AppError from '../utils/appError.js';
 
 //---------------------------------------------------------------------------------------------------
 const handleCastErrorDB = (err) => {

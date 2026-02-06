@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import asyncHandler from 'express-async-handler';
 
 
-import AppError from "../utils/AppError.js";
+import AppError from '../utils/appError.js';
 
 
 // Create One -----------------------------------------------------------------------------------

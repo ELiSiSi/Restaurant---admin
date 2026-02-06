@@ -1,7 +1,7 @@
 import Meal from '../models/mealModel.js';
 import Offer from '../models/offerModel.js';
 import Order from '../models/orderModel.js';
-import AppError from '../utils/AppError.js';
+import AppError from '../utils/appError.js';
 
 
 // loginAdmin -----------------------------------------------------------------------------------
