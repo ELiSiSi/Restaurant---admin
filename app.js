@@ -17,7 +17,7 @@ import mealRouter from './routes/mealRouter.js';
 import offerRouter from './routes/offerRouter.js';
 import orderRouter from './routes/orderRouter.js';
 import viewRouter from './routes/viewRouter.js';
-import AppError from '../utils/appError.js';
+import AppError from './utils/appError.js';
 
 const MONGO_URI = process.env.MONGO_URI;
 const app = express();
